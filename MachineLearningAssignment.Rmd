@@ -1,0 +1,96 @@
+---
+title: "Practical machine learning Assignment"
+author: "Camilo Dorado"
+date: "Saturday, August 22, 2015"
+output: html_document
+---
+
+
+```{r}
+library(caret)
+library(randomForest)
+library(ggplot2)
+#Set the working directory
+setwd("d:/Users/Camilo/Desktop/DataScience/MachineLearn")
+#Create a directory "data"
+if(!file.exists("data")) {
+  dir.create("data")}
+#Set the URLs to download the data and the name of the destination file
+trainURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+trainFile <- "./data/train.csv"
+testFile <- "./data/test.csv"
+#Download the data and report the download info
+download.file(trainURL, destfile = trainFile)
+download.file(testURL, destfile = testFile)
+dateDownload <- date()
+#Load the data
+trainData <- read.csv(trainFile)
+testData <- read.csv(testFile)
+#Tidy the data and discard NA variables
+trainData$classe <- factor(trainData$classe)
+na.number <- numeric()
+for(i in 1:dim(trainData)[2]){
+  na.number[i] <- sum(is.na(trainData[,i]))}
+training <- trainData[which(na.number == 0)]
+testing <- testData[which(na.number == 0)]
+
+#Discard useless variables (those who begin with words "amplitude", "kurtosis", "skewness",
+#"min" and "max") and the first seven identifiers
+useless <- grep("^amplitude|^kurtosis|^skewness|^min|^max", names(training), value=F)
+useless <- c(1:7, useless)
+training <- training[, -useless]
+testing <- testing[, -useless]
+```
+
+```{r simulation, cache=TRUE}
+set.seed(20151025)
+#Create a data partition and reserve the test dataset to assess the out-of-bag error
+inTrain <- createDataPartition(y=training$classe, p=0.6, list=F)
+train <- training[inTrain,]
+test <- training[-inTrain,]
+
+#Perform 10 simulations to compare the random forests algorithms with and without PCA
+#preprocessing
+nSimulations <- 10
+results <- data.frame(accuracy=NA, pValue=NA, accuracyPCA=NA, pValuePCA=NA)
+ 
+for(sim in 1:nSimulations){
+  #For each simulation, generate a partition to train and test the models
+  trainIndex <- createDataPartition(train$classe, p=0.60, list=F)
+  trainSimulation <- train[trainIndex,]
+  testSimulation <- train[-trainIndex,]
+  #Create a random forest model with the partial training dataset
+  rForestModel <- randomForest(classe ~ ., data=trainSimulation)
+  #Predict for the partial testing dataset
+  predictionRandomForest <- predict(rForestModel, testSimulation)
+  #Save the accuracy of the prediction and its associated p-value the results dataframe
+  results[sim, c("accuracy", "pValue")] <- 
+    confusionMatrix(predictionRandomForest, testSimulation$classe)$overall[c(1, 6)]
+  #For the same partition, create a random forest model with the partial training dataset
+  #and preprocess with principal components analysis
+  rForestModelPCA <- randomForest(classe ~ ., data=trainSimulation, 
+                          preProcess="pca")
+  #Predict for the partial testing dataset
+  predictionRandomForestPCA <- predict(rForestModelPCA, testSimulation)
+  #Save the accuracy of the prediction and its associated p-value the results dataframe
+  results[sim, c("accuracyPCA", "pValuePCA")] <- 
+   confusionMatrix(predictionRandomForestPCA, testSimulation$classe)$overall[c(1, 6)]
+  }
+```
+
+```{r results}
+meanErrorRate <- mean(1 - results$accuracy)
+sdErrorRate <- sd(1 - results$accuracy)
+meanErrorRatePCA <- mean(1 - results$accuracyPCA)
+sdErrorRatePCA <- sd(1 - results$accuracyPCA)
+
+sum(results$accuracyPCA>results$accuracy)
+```
+
+
+```{r, echo=FALSE}
+rpartModel <- train(classe ~ ., method="rpart", data=train, prox=F)
+rForestModel <- randomForest(classe ~ ., data=train)
+
+```
