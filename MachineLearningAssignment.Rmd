@@ -1,12 +1,12 @@
 ---
-title: "Practical machine learning Assignment"
+title: "Practical Machine Learning Assignment"
 author: "Camilo Dorado"
-date: "Saturday, August 22, 2015"
-output: html_document
 ---
 
+###Introduction
+In this work we pretend to apply some routines of the R packages _randomForest_ and _caret_, to a problem of classification. Then we create a training dataset with 60% of total data. Based on subsamples of the training dataset, we build, train and evaluate several random forest models, using cross-validation as the first approach to decide if principal components preprocessing is or not necessary to achieve a better accuracy. Finally, we construct a final random forest model based in the totality of training dataset, and confirm the expected error rates.
 
-```{r}
+```{r download and tidy data, cache=TRUE, echo=FALSE}
 library(caret)
 library(randomForest)
 library(ggplot2)
@@ -21,8 +21,8 @@ testURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
 trainFile <- "./data/train.csv"
 testFile <- "./data/test.csv"
 #Download the data and report the download info
-download.file(trainURL, destfile = trainFile)
-download.file(testURL, destfile = testFile)
+#download.file(trainURL, destfile = trainFile)
+#download.file(testURL, destfile = testFile)
 dateDownload <- date()
 #Load the data
 trainData <- read.csv(trainFile)
@@ -52,7 +52,7 @@ test <- training[-inTrain,]
 
 #Perform 10 simulations to compare the random forests algorithms with and without PCA
 #preprocessing
-nSimulations <- 10
+nSimulations <- 2
 results <- data.frame(accuracy=NA, pValue=NA, accuracyPCA=NA, pValuePCA=NA)
  
 for(sim in 1:nSimulations){
@@ -79,7 +79,9 @@ for(sim in 1:nSimulations){
   }
 ```
 
-```{r results}
+###Results
+Comparing the mean and standard deviation of error measures (proportion of incorrectly classified observations in each simulation) for the random forest models with and without PCA preprocessing, the advantage of preprocessing is not evident. We choose a model without PCA preprocessing, which gives error rates between `r round(100 * (1 - max(results$accuracy)), 1)`% and `r round(100 * (1 - min(results$accuracy)), 1)`% in the `r nSimulations` simulations performed.
+```{r results, cache=TRUE}
 meanErrorRate <- mean(1 - results$accuracy)
 sdErrorRate <- sd(1 - results$accuracy)
 meanErrorRatePCA <- mean(1 - results$accuracyPCA)
@@ -88,9 +90,22 @@ sdErrorRatePCA <- sd(1 - results$accuracyPCA)
 sum(results$accuracyPCA>results$accuracy)
 ```
 
+###Final model and evaluation
+Now, we use the total train dataset to get a final random forest model, which we will use in the classification task. That model will be evaluated in the reserved test dataset.
+```{r final model and evaluation, cache=TRUE, echo=FALSE}
+#library(randomForest)
+#library(caret)
+finalModel <- randomForest(classe ~ ., data=train)
+prediction <- predict(finalModel, test)
+confusionMatrix <- confusionMatrix(prediction, test$classe)
+```
+The accuracy of this model in the test set is `r round(100 * (1 - confusionMatrix$overall[1]), 1)`%, which is less than `r round(100 * (1 - min(results$accuracy)), 1)`%, as expected.
 
-```{r, echo=FALSE}
-rpartModel <- train(classe ~ ., method="rpart", data=train, prox=F)
-rForestModel <- randomForest(classe ~ ., data=train)
-
+###Performance in the classification task
+Finally, we use the given model to perform the classification task assigned
+```{r classification task, cache=TRUE}
+library(randomForest)
+library(caret)
+answers <- predict(finalModel, testing)
+print(answers)
 ```
