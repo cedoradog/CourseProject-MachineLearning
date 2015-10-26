@@ -4,12 +4,12 @@ author: "Camilo Dorado"
 ---
 
 ###Introduction
-In this work we pretend to apply some routines of the R packages _randomForest_ and _caret_, to a problem of classification. Then we create a training dataset with 60% of total data. Based on subsamples of the training dataset, we build, train and evaluate several random forest models, using cross-validation as the first approach to decide if principal components preprocessing is or not necessary to achieve a better accuracy. Finally, we construct a final random forest model based in the totality of training dataset, and confirm the expected error rates.
+In this work we pretend to apply some routines of the R packages _randomForest_ and _caret_, to a problem of classification. Then we create a training dataset with 60% of total data. Based on subsamples of the training dataset, we build, train and evaluate several random forest models, using cross-validation as the first approach to decide if principal components pre-processing is or not necessary to achieve a better accuracy. Finally, we construct a final random forest model based in the totality of training dataset, and confirm the expected error rates.
 
+###Data acquisition
 ```{r download and tidy data, cache=TRUE, echo=FALSE}
 library(caret)
 library(randomForest)
-library(ggplot2)
 #Set the working directory
 setwd("d:/Users/Camilo/Desktop/DataScience/MachineLearn")
 #Create a directory "data"
@@ -42,8 +42,12 @@ useless <- c(1:7, useless)
 training <- training[, -useless]
 testing <- testing[, -useless]
 ```
+Data were downloaded from `r trainURL` on `r dateDownload`. 
 
-```{r simulation, cache=TRUE}
+###Cross-validation
+60% of the data set was used to build and evaluate the models, and the other 40% was left to validate the obtained results. Ten times, we sample a 60% of the training dataset in order to build a random forest model, with and without principal components pre-processing. The accuracy obtained for each model in the other 40% of the training dataset, was saved for each random forest model.
+
+```{r cross-validation, cache=TRUE}
 set.seed(20151025)
 #Create a data partition and reserve the test dataset to assess the out-of-bag error
 inTrain <- createDataPartition(y=training$classe, p=0.6, list=F)
@@ -51,7 +55,7 @@ train <- training[inTrain,]
 test <- training[-inTrain,]
 
 #Perform 10 simulations to compare the random forests algorithms with and without PCA
-#preprocessing
+#pre-processing
 nSimulations <- 2
 results <- data.frame(accuracy=NA, pValue=NA, accuracyPCA=NA, pValuePCA=NA)
  
@@ -68,7 +72,7 @@ for(sim in 1:nSimulations){
   results[sim, c("accuracy", "pValue")] <- 
     confusionMatrix(predictionRandomForest, testSimulation$classe)$overall[c(1, 6)]
   #For the same partition, create a random forest model with the partial training dataset
-  #and preprocess with principal components analysis
+  #and pre-process with principal components analysis
   rForestModelPCA <- randomForest(classe ~ ., data=trainSimulation, 
                           preProcess="pca")
   #Predict for the partial testing dataset
@@ -79,19 +83,20 @@ for(sim in 1:nSimulations){
   }
 ```
 
-###Results
-Comparing the mean and standard deviation of error measures (proportion of incorrectly classified observations in each simulation) for the random forest models with and without PCA preprocessing, the advantage of preprocessing is not evident. Both kind of models perform really well in classification
+###Cross-validation results
+Comparing the mean and standard deviation of error measures (proportion of incorrectly classified observations in each simulation) for the random forest models with and without PCA pre-processing, the advantage of pre-processing is not evident. Both kind of models perform really well in classification (p-value associated with accuracy is ever less than 0.001).
+
 ```{r results, cache=TRUE}
 #Collect the mean and sd of error rates (1 - accuracy) for each kind of model
 meanErrorRate <- mean(1 - results$accuracy)
 sdErrorRate <- sd(1 - results$accuracy)
 meanErrorRatePCA <- mean(1 - results$accuracyPCA)
 sdErrorRatePCA <- sd(1 - results$accuracyPCA)
-#Count the number of simulations when the PCA preprocessed random forest outperform the
-#non-preprocessed one
+#Count the number of simulations when the PCA pre-processed random forest outperform the
+#non-pre-processed one
 sum(results$accuracyPCA>results$accuracy)
 ```
-We choose a model without PCA preprocessing, which gives error rates between `r round(100 * (1 - max(results$accuracy)), 1)`% and `r round(100 * (1 - min(results$accuracy)), 1)`% in the `r nSimulations` simulations performed (mean = `r round(100 * meanErrorRate, 1)`%, sd `r round(100 * sdErrorRate, 1)`%).
+We choose a model without PCA pre-processing, which gives error rates between `r round(100 * (1 - max(results$accuracy)), 1)`% and `r round(100 * (1 - min(results$accuracy)), 1)`% in the `r nSimulations` simulations performed (mean = `r round(100 * meanErrorRate, 1)`%, SD = `r round(100 * sdErrorRate, 1)`%).
 
 ###Final model and evaluation
 Now, we use the total train dataset to get a final random forest model, which we will use in the classification task. That model will be evaluated in the reserved test dataset.
@@ -104,17 +109,18 @@ The accuracy of this model in the test set is `r round(100 * (1 - confusionMatri
 We now find the two most relevant variables for the random forest model, and graph all the available data in a space conformed by them.
 
 ```{r variable importance and plot, cache=TRUE}
-#Find the two most important variables
+library(ggplot2)
+#Find the five most important variables
 mainVars <- head(names(train)[order(finalModel$importance, decreasing=TRUE)], 5)
 #Plot every data colored by classe
 ggplot(aes_string(x=mainVars[1], y=mainVars[2], colour="classe"), data=training) +
   geom_point(alpha=0.5, size=1)
 ```
 
-As we can see, the most important variables for classification are _`r mainVars[1]`_ and _`r mainVars[2]`_. The classes differentiation is pretty obvious in this plot. However, there is not a perfect separation because of the relevance of others variables (_`r mainVars[3]`_, _`r mainVars[4]`_ and _`r mainVars[5]`_, for example).
+As we can see, the most important variables for classification are *`r mainVars[1]`* and *`r mainVars[2]`*. The classes differentiation is pretty obvious in this plot. However, there is not a perfect separation because of the relevance of others variables (*`r mainVars[3]`*, *`r mainVars[4]`* and *`r mainVars[5]`*, for example).This plot show `r dim(training)[1]` observations, so you must notice they are really crowd together in small groups.
 
 ###Performance in the classification task
-Finally, we use the given model to solve the assigned classification task.
+Finally, we use the given obtainde random forest model to solve the assigned classification task.
 ```{r classification task, cache=TRUE}
 answers <- predict(finalModel, testing)
 print(answers)
