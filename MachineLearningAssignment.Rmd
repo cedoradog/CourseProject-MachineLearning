@@ -80,32 +80,42 @@ for(sim in 1:nSimulations){
 ```
 
 ###Results
-Comparing the mean and standard deviation of error measures (proportion of incorrectly classified observations in each simulation) for the random forest models with and without PCA preprocessing, the advantage of preprocessing is not evident. We choose a model without PCA preprocessing, which gives error rates between `r round(100 * (1 - max(results$accuracy)), 1)`% and `r round(100 * (1 - min(results$accuracy)), 1)`% in the `r nSimulations` simulations performed.
+Comparing the mean and standard deviation of error measures (proportion of incorrectly classified observations in each simulation) for the random forest models with and without PCA preprocessing, the advantage of preprocessing is not evident. Both kind of models perform really well in classification
 ```{r results, cache=TRUE}
+#Collect the mean and sd of error rates (1 - accuracy) for each kind of model
 meanErrorRate <- mean(1 - results$accuracy)
 sdErrorRate <- sd(1 - results$accuracy)
 meanErrorRatePCA <- mean(1 - results$accuracyPCA)
 sdErrorRatePCA <- sd(1 - results$accuracyPCA)
-
+#Count the number of simulations when the PCA preprocessed random forest outperform the
+#non-preprocessed one
 sum(results$accuracyPCA>results$accuracy)
 ```
+We choose a model without PCA preprocessing, which gives error rates between `r round(100 * (1 - max(results$accuracy)), 1)`% and `r round(100 * (1 - min(results$accuracy)), 1)`% in the `r nSimulations` simulations performed (mean = `r round(100 * meanErrorRate, 1)`%, sd `r round(100 * sdErrorRate, 1)`%).
 
 ###Final model and evaluation
 Now, we use the total train dataset to get a final random forest model, which we will use in the classification task. That model will be evaluated in the reserved test dataset.
-```{r final model and evaluation, cache=TRUE, echo=FALSE}
-#library(randomForest)
-#library(caret)
+```{r final model and evaluation, cache=TRUE}
 finalModel <- randomForest(classe ~ ., data=train)
 prediction <- predict(finalModel, test)
 confusionMatrix <- confusionMatrix(prediction, test$classe)
 ```
 The accuracy of this model in the test set is `r round(100 * (1 - confusionMatrix$overall[1]), 1)`%, which is less than `r round(100 * (1 - min(results$accuracy)), 1)`%, as expected.
+We now find the two most relevant variables for the random forest model, and graph all the available data in a space conformed by them.
+
+```{r variable importance and plot, cache=TRUE}
+#Find the two most important variables
+mainVars <- head(names(train)[order(finalModel$importance, decreasing=TRUE)], 5)
+#Plot every data colored by classe
+ggplot(aes_string(x=mainVars[1], y=mainVars[2], colour="classe"), data=training) +
+  geom_point(alpha=0.5, size=1)
+```
+
+As we can see, the most important variables for classification are _`r mainVars[1]`_ and _`r mainVars[2]`_. The classes differentiation is pretty obvious in this plot. However, there is not a perfect separation because of the relevance of others variables (_`r mainVars[3]`_, _`r mainVars[4]`_ and _`r mainVars[5]`_, for example).
 
 ###Performance in the classification task
-Finally, we use the given model to perform the classification task assigned
+Finally, we use the given model to solve the assigned classification task.
 ```{r classification task, cache=TRUE}
-library(randomForest)
-library(caret)
 answers <- predict(finalModel, testing)
 print(answers)
 ```
