@@ -1,13 +1,16 @@
 ---
 title: "Practical Machine Learning Assignment"
 author: "Camilo Dorado"
+output:
+  html_document:
+    keep_md: yes
 ---
 
 ####Introduction
 In this work we pretend to apply some routines of the R packages _randomForest_ and _caret_, to a problem of classification. Then we create a training dataset with 60% of total data. Based on subsamples of the training dataset, we build, train and evaluate several random forest models, using cross-validation as the first approach to decide if principal components pre-processing is or not necessary to achieve a better accuracy. Finally, we construct a final random forest model based in the totality of training dataset, and confirm the expected error rates.
 
 ####Data acquisition
-```{r download and tidy data, cache=TRUE, echo=FALSE}
+```{r download and tidy data, cache=TRUE, echo=TRUE}
 library(caret)
 library(randomForest)
 #Set the working directory
@@ -108,13 +111,14 @@ confusionMatrix <- confusionMatrix(prediction, test$classe)
 The accuracy of this model in the test set is `r round(100 * (1 - confusionMatrix$overall[1]), 1)`%, which is less than `r round(100 * (1 - min(results$accuracy)), 1)`%, as expected.
 We now find the two most relevant variables for the random forest model, and graph all the available data in a space conformed by them.
 
-```{r variable importance and plot, cache=FALSE}
+```{r variable importance and plot, warning=FALSE, cache=TRUE}
 library(ggplot2)
 #Find the five most important variables
 mainVars <- head(names(train)[order(finalModel$importance, decreasing=TRUE)], 5)
 #Plot every data colored by classe
-ggplot(aes_string(x=mainVars[1], y=mainVars[2], colour="classe"), data=training) +
+plot <- ggplot(aes_string(x=mainVars[1], y=mainVars[2], colour="classe"), data=training) +
   geom_point(alpha=0.5, size=1)
+print(plot)
 ```
 
 As we can see, the most important variables for classification are *`r mainVars[1]`* and *`r mainVars[2]`*. The classes differentiation is pretty obvious in this plot. However, there is not a perfect separation because of the relevance of others variables (*`r mainVars[3]`*, *`r mainVars[4]`* and *`r mainVars[5]`*, for example).This plot show `r dim(training)[1]` observations, so you must notice they are really crowd together in small groups.
